@@ -1,0 +1,8 @@
+{
+  "updated_at": "2026-05-27 18:00:00",
+  "source": "manual-example",
+  "items": [
+    { "name": "5小时", "remaining_percent": 73, "reset": "20:10" },
+    { "name": "1周", "remaining_percent": 96, "reset": "5月31日" }
+  ]
+}

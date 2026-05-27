@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local runtime/build outputs
+build/
+dist/
+*.spec
+settings.json
+quota_status.json
+
+# Investigation extracts are not part of this project.
+asar_extract/
