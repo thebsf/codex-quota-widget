@@ -14,7 +14,7 @@
 
 ## 下载使用
 
-1. 在仓库的 [Releases](https://github.com/thebsf/codex-quota-widget/releases) 页面下载 `Codex剩余额度弹窗.exe`。
+1. 在仓库的 [Releases](https://github.com/thebsf/codex-quota-widget/releases) 页面下载 `CodexQuotaWidget.exe`。
 2. 确保 Codex 桌面应用已登录并运行。
 3. 双击 exe。小组件会随 Codex 的运行状态自动显示或隐藏。
 4. 右键小组件进入设置；顶部按钮可锁定、置顶、刷新和关闭。
