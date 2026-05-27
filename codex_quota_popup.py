@@ -3,11 +3,11 @@ import json
 import os
 import re
 import sqlite3
-import subprocess
 import sys
 import threading
 import time
 import tkinter as tk
+from ctypes import wintypes
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +34,25 @@ ICON_CLOSE = "\uE8BB"
 GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_APPWINDOW = 0x00040000
+ERROR_ALREADY_EXISTS = 183
+INSTANCE_MUTEX_NAME = "Local\\CodexUsagePopupSingleInstance"
+CODEX_MISSING_LIMIT = 3
+_INSTANCE_MUTEX_HANDLE = None
+
+
+class PROCESSENTRY32W(ctypes.Structure):
+    _fields_ = [
+        ("dwSize", wintypes.DWORD),
+        ("cntUsage", wintypes.DWORD),
+        ("th32ProcessID", wintypes.DWORD),
+        ("th32DefaultHeapID", ctypes.POINTER(ctypes.c_ulong)),
+        ("th32ModuleID", wintypes.DWORD),
+        ("cntThreads", wintypes.DWORD),
+        ("th32ParentProcessID", wintypes.DWORD),
+        ("pcPriClassBase", ctypes.c_long),
+        ("dwFlags", wintypes.DWORD),
+        ("szExeFile", wintypes.WCHAR * 260),
+    ]
 
 DEFAULT_SETTINGS = {
     "geometry": "214x82+36+856",
@@ -88,23 +107,51 @@ def save_json(path: Path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def acquire_single_instance():
+    global _INSTANCE_MUTEX_HANDLE
+    kernel32 = ctypes.windll.kernel32
+    kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+    kernel32.CreateMutexW.restype = ctypes.c_void_p
+    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    handle = kernel32.CreateMutexW(None, False, INSTANCE_MUTEX_NAME)
+    if not handle:
+        return True
+    if kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+        kernel32.CloseHandle(handle)
+        return False
+    _INSTANCE_MUTEX_HANDLE = handle
+    return True
+
+
 def is_codex_running():
+    snapshot = None
     try:
-        result = subprocess.run(
-            [
-                "powershell",
-                "-NoProfile",
-                "-Command",
-                "Get-Process | Where-Object { $_.ProcessName -match '^(Codex|codex)$' } | Select-Object -First 1 -ExpandProperty Id",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=3,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
-        return bool(result.stdout.strip())
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateToolhelp32Snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
+        kernel32.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
+        kernel32.Process32FirstW.argtypes = (ctypes.c_void_p, ctypes.POINTER(PROCESSENTRY32W))
+        kernel32.Process32FirstW.restype = wintypes.BOOL
+        kernel32.Process32NextW.argtypes = (ctypes.c_void_p, ctypes.POINTER(PROCESSENTRY32W))
+        kernel32.Process32NextW.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        snapshot = kernel32.CreateToolhelp32Snapshot(0x00000002, 0)
+        if snapshot == ctypes.c_void_p(-1).value:
+            return False
+        entry = PROCESSENTRY32W()
+        entry.dwSize = ctypes.sizeof(entry)
+        has_entry = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+        while has_entry:
+            if entry.szExeFile.lower() == "codex.exe":
+                return True
+            has_entry = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+        return False
     except Exception:
         return False
+    finally:
+        if snapshot and snapshot != ctypes.c_void_p(-1).value:
+            ctypes.windll.kernel32.CloseHandle(snapshot)
 
 
 def clamp_percent(value):
@@ -336,6 +383,7 @@ class UsagePopup:
         self.refresh_after_id = None
         self.refresh_in_progress = False
         self.refresh_result = None
+        self.codex_missing_count = 0
         self.build_ui()
         self.ensure_status_file()
         self.apply_style()
@@ -489,7 +537,14 @@ class UsagePopup:
 
     def apply_refresh_data(self, running, items):
         self.refresh_in_progress = False
+        if running:
+            self.codex_missing_count = 0
+        else:
+            self.codex_missing_count += 1
         if not running and self.settings["hide_when_codex_closed"]:
+            if self.codex_missing_count < CODEX_MISSING_LIMIT:
+                self.refresh_after_id = self.root.after(3000, self.refresh)
+                return
             if self.settings["exit_when_codex_closed"]:
                 self.quit()
                 return
@@ -654,5 +709,5 @@ class SettingsWindow:
         self.win.destroy()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and acquire_single_instance():
     UsagePopup()
