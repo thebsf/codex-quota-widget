@@ -20,6 +20,8 @@
 3. 双击 exe。小组件会随 Codex 的运行状态自动显示或隐藏；短暂检测失败不会让窗口突然消失。
 4. 右键小组件进入设置；顶部按钮可锁定、置顶、刷新和关闭。
 
+如果需要“Codex 启动时自动打开小组件，Codex 全部关闭时自动关闭小组件”，下载 `CodexQuotaWidget-Portable.zip`，解压后运行 `install-startup.ps1`。
+
 Windows 可能对未签名的个人发布程序显示 SmartScreen 提示。本项目不包含代码签名证书。
 
 ## 实时数据说明
@@ -69,19 +71,25 @@ python .\codex_quota_popup.py
 dist\Codex剩余额度弹窗.exe
 ```
 
-## 开机启动
+## 跟随 Codex 启停
 
-先完成 EXE 构建，再运行：
+如果使用源码构建，先完成 EXE 构建，再运行：
 
 ```powershell
 .\install-startup.ps1
 ```
+
+如果使用 Release 里的 `CodexQuotaWidget-Portable.zip`，解压后直接运行同名脚本即可。
+
+这会在 Windows 启动项里放入一个轻量监听器，并立即启动它。监听器常驻后台，Codex 启动时打开小组件，Codex 全部关闭时关闭小组件。
 
 移除开机启动：
 
 ```powershell
 .\uninstall-startup.ps1
 ```
+
+卸载脚本会移除启动项，并停止当前正在运行的监听器。
 
 ## 隐私与发布范围
 

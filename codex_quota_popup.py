@@ -68,7 +68,7 @@ DEFAULT_SETTINGS = {
     "refresh_seconds": 20,
     "always_on_top": True,
     "hide_when_codex_closed": True,
-    "exit_when_codex_closed": False,
+    "exit_when_codex_closed": True,
     "borderless": True,
     "click_through": False,
     "locked": False,
